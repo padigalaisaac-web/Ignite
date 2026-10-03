@@ -1,9 +1,9 @@
 import React from 'react';
 import { 
-  LayoutDashboard, 
-  Layers, 
-  FileCode2, 
+  Layout, 
   GitFork, 
+  FileCode, 
+  Terminal, 
   HeartHandshake, 
   AlertTriangle 
 } from 'lucide-react';
@@ -24,18 +24,18 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
   issuesCount = 0
 }) => {
   const tabs = [
-    { key: 'overview' as TabKey, label: 'Overview', icon: LayoutDashboard },
-    { key: 'architecture' as TabKey, label: 'Architecture', icon: Layers },
-    { key: 'files' as TabKey, label: 'Important Files', icon: FileCode2, count: filesCount },
-    { key: 'flow' as TabKey, label: 'Code Flow', icon: GitFork },
+    { key: 'overview' as TabKey, label: 'Overview', icon: Layout },
+    { key: 'architecture' as TabKey, label: 'Architecture', icon: GitFork },
+    { key: 'files' as TabKey, label: 'Important Files', icon: FileCode, count: filesCount },
+    { key: 'flow' as TabKey, label: 'Code Flow', icon: Terminal },
     { key: 'contribute' as TabKey, label: 'Contribute', icon: HeartHandshake, highlight: true },
     { key: 'issues' as TabKey, label: 'Potential Issues', icon: AlertTriangle, count: issuesCount, alert: issuesCount > 0 },
   ];
 
   return (
-    <div className="border-b border-slate-800 bg-slate-950/40 backdrop-blur sticky top-16 z-40">
+    <div className="border-b border-[#30363d] bg-[#0d1117] sticky top-14 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <nav className="flex space-x-1 sm:space-x-3 overflow-x-auto py-2.5 no-scrollbar">
+        <nav className="flex space-x-1 sm:space-x-4 overflow-x-auto py-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -43,35 +43,31 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
               <button
                 key={tab.key}
                 onClick={() => onTabChange(tab.key)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
+                className={`flex items-center gap-2 py-3 px-3 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition-colors cursor-pointer select-none ${
                   isActive
-                    ? tab.highlight 
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                      : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                    : tab.highlight
-                    ? 'text-emerald-400/90 hover:text-emerald-300 hover:bg-emerald-950/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                    ? 'border-[#f78166] text-[#f0f6fc] font-semibold'
+                    : 'border-transparent text-[#8b949e] hover:text-[#c9d1d9] hover:border-[#30363d]'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? (tab.highlight ? 'text-emerald-400' : 'text-cyan-400') : 'text-slate-500'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-[#f0f6fc]' : 'text-[#6e7681]'}`} />
                 <span>{tab.label}</span>
 
                 {typeof tab.count === 'number' && tab.count > 0 && (
                   <span
-                    className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[11px] font-mono ${
                       tab.alert 
-                        ? 'bg-amber-950 text-amber-400 border border-amber-500/40' 
-                        : isActive 
-                        ? 'bg-cyan-950 text-cyan-300' 
-                        : 'bg-slate-800 text-slate-400'
+                        ? 'bg-[#3d1f14] text-[#f85149] border border-[#f85149]/30' 
+                        : 'bg-[#21262d] text-[#c9d1d9]'
                     }`}
                   >
                     {tab.count}
                   </span>
                 )}
 
-                {tab.highlight && !isActive && (
-                  <span className="ml-1 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {tab.highlight && (
+                  <span className="text-[10px] font-mono uppercase bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40 px-1.5 py-0.2 rounded">
+                    Start Here
+                  </span>
                 )}
               </button>
             );

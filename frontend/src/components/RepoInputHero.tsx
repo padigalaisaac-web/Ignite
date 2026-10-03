@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Code2, Layers, GitPullRequest, ShieldAlert } from 'lucide-react';
+import { ArrowRight, Code, GitPullRequest, GitFork, ShieldCheck, Terminal, Search } from 'lucide-react';
 
 interface RepoInputHeroProps {
   onAnalyze: (url: string) => void;
@@ -8,11 +8,11 @@ interface RepoInputHeroProps {
   aiModelName?: string;
 }
 
-const QUICK_EXAMPLES = [
-  { label: 'Express.js', url: 'https://github.com/expressjs/express', desc: 'Node.js Web Framework' },
-  { label: 'Flask', url: 'https://github.com/pallets/flask', desc: 'Python Microframework' },
-  { label: 'FastAPI', url: 'https://github.com/tiangolo/fastapi', desc: 'Python API Framework' },
-  { label: 'Octocat Hello-World', url: 'https://github.com/octocat/Hello-World', desc: 'Minimal Demo Repo' },
+const PRESET_REPOSITORIES = [
+  { label: 'expressjs/express', lang: 'JavaScript', langColor: '#f1e05a', desc: 'Fast, unopinionated web framework for Node.js' },
+  { label: 'pallets/flask', lang: 'Python', langColor: '#3572A5', desc: 'Lightweight WSGI web application framework' },
+  { label: 'tiangolo/fastapi', lang: 'Python', langColor: '#3572A5', desc: 'High performance web framework with type hints' },
+  { label: 'octocat/Hello-World', lang: 'Mixed', langColor: '#8b949e', desc: 'Minimal GitHub demonstration repository' },
 ];
 
 export const RepoInputHero: React.FC<RepoInputHeroProps> = ({
@@ -27,153 +27,180 @@ export const RepoInputHero: React.FC<RepoInputHeroProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!repoUrl.trim()) {
-      setLocalError('Please enter a GitHub repository URL or slug (e.g. owner/repo).');
+      setLocalError('Please specify a GitHub repository URL or slug (e.g. owner/repo).');
       return;
     }
     setLocalError('');
     onAnalyze(repoUrl.trim());
   };
 
-  const handleQuickPick = (url: string) => {
-    setRepoUrl(url);
+  const handleQuickSelect = (slug: string) => {
+    const fullUrl = `https://github.com/${slug}`;
+    setRepoUrl(fullUrl);
     setLocalError('');
-    onAnalyze(url);
+    onAnalyze(fullUrl);
   };
 
   return (
-    <div className="relative py-12 md:py-20 overflow-hidden">
-      {/* Background radial glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-cyan-500/10 blur-[120px] pointer-events-none rounded-full" />
-      <div className="absolute top-1/3 left-1/3 w-[400px] h-[250px] bg-blue-600/10 blur-[100px] pointer-events-none rounded-full" />
-
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center relative z-10">
-        {/* Hackathon Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-700/80 text-xs text-slate-300 font-mono mb-6 shadow-sm">
-          <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>MLH Hacktoberfest • Best Open-Source AI Project</span>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+      {/* Title & Core Purpose */}
+      <div className="text-left mb-8 pb-6 border-b border-[#21262d]">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-[#161b22] border border-[#30363d] text-[#8b949e]">
+            MLH Hacktoberfest • Best Open-Source AI Project
+          </span>
           {aiModelName && (
-            <span className="text-cyan-400 border-l border-slate-700 pl-2">
-              {aiModelName} {aiProviderName ? `(${aiProviderName})` : ''}
+            <span className="text-xs font-mono text-[#58a6ff] bg-[#0d1117] border border-[#21262d] px-2 py-0.5 rounded">
+              Model: {aiModelName} {aiProviderName ? `(${aiProviderName})` : ''}
             </span>
           )}
         </div>
 
-        {/* Hero Title */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-tight">
-          RepoPilot <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">AI</span>
+        <h1 className="text-2xl sm:text-3xl font-bold text-[#f0f6fc] tracking-tight">
+          RepoPilot AI
         </h1>
-        <p className="mt-4 text-xl sm:text-2xl text-slate-200 font-medium tracking-tight">
+        <p className="text-base sm:text-lg text-[#c9d1d9] mt-1 font-medium">
           Understand any unfamiliar open-source repository.
         </p>
-        <p className="mt-3 text-base sm:text-lg text-slate-400 max-w-2xl mx-auto">
+        <p className="text-sm text-[#8b949e] mt-2 max-w-2xl leading-relaxed">
           Paste a GitHub repository and let open-weight AI explain the codebase, architecture, important files, and where you should start contributing.
         </p>
+      </div>
 
-        {/* URL Input Form */}
-        <form onSubmit={handleSubmit} className="mt-8 max-w-2xl mx-auto">
-          <div className="relative flex flex-col sm:flex-row items-stretch gap-2.5 p-2 rounded-2xl bg-slate-900/90 border border-slate-700 shadow-2xl shadow-cyan-950/20 backdrop-blur-xl focus-within:border-cyan-500/80 focus-within:ring-2 focus-within:ring-cyan-500/20 transition-all">
-            <div className="relative flex-1 flex items-center pl-3">
-              <svg className="w-5 h-5 text-slate-500 mr-2.5 shrink-0 fill-current" viewBox="0 0 24 24">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-              </svg>
-              <input
-                type="text"
-                value={repoUrl}
-                onChange={(e) => {
-                  setRepoUrl(e.target.value);
-                  if (localError) setLocalError('');
-                }}
-                disabled={isLoading}
-                placeholder="https://github.com/owner/repository"
-                className="w-full bg-transparent text-white placeholder-slate-500 text-sm sm:text-base outline-none font-mono py-2"
-              />
-            </div>
-            <button
-              type="submit"
+      {/* Repository Input Form */}
+      <form onSubmit={handleSubmit} className="space-y-2">
+        <div className="flex flex-col sm:flex-row items-stretch gap-2 p-1.5 rounded-lg bg-[#161b22] border border-[#30363d] focus-within:border-[#58a6ff] focus-within:ring-1 focus-within:ring-[#58a6ff]/30 transition-all">
+          <div className="flex items-center pl-3 flex-1">
+            <Search className="w-4 h-4 text-[#6e7681] mr-2 shrink-0" />
+            <input
+              type="text"
+              value={repoUrl}
+              onChange={(e) => {
+                setRepoUrl(e.target.value);
+                if (localError) setLocalError('');
+              }}
               disabled={isLoading}
-              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Analyzing...</span>
-                </>
-              ) : (
-                <>
-                  <span>Analyze Repository</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
+              placeholder="https://github.com/owner/repository (or owner/repo)"
+              className="w-full bg-transparent text-[#f0f6fc] placeholder-[#6e7681] text-sm outline-none font-mono py-2"
+              spellCheck={false}
+              autoComplete="off"
+            />
           </div>
-          {localError && (
-            <p className="mt-2 text-xs text-rose-400 text-left pl-3 font-mono">{localError}</p>
-          )}
-        </form>
 
-        {/* Quick Examples */}
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-400">
-          <span className="text-slate-500 font-mono">Quick Try:</span>
-          {QUICK_EXAMPLES.map((ex) => (
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded bg-[#238636] hover:bg-[#2ea043] text-white text-xs sm:text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer shadow-sm"
+          >
+            {isLoading ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Analyzing Repository...</span>
+              </>
+            ) : (
+              <>
+                <span>Analyze Repository</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </>
+            )}
+          </button>
+        </div>
+
+        {localError && (
+          <p className="text-xs text-[#f85149] font-mono pl-1">{localError}</p>
+        )}
+      </form>
+
+      {/* Preset Repositories Selection Table */}
+      <div className="mt-8">
+        <div className="text-xs font-mono uppercase text-[#8b949e] font-semibold mb-3 flex items-center gap-1.5">
+          <Terminal className="w-3.5 h-3.5 text-[#6e7681]" />
+          <span>Quick Repositories</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {PRESET_REPOSITORIES.map((preset) => (
             <button
-              key={ex.url}
-              onClick={() => handleQuickPick(ex.url)}
+              key={preset.label}
+              onClick={() => handleQuickSelect(preset.label)}
               disabled={isLoading}
-              className="px-3 py-1 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-cyan-400 border border-slate-800 hover:border-cyan-500/30 transition-all font-mono text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              title={ex.desc}
+              className="flex items-start justify-between p-3 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#21262d] hover:border-[#30363d] text-left transition-all cursor-pointer group disabled:opacity-50"
             >
-              <span>{ex.label}</span>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-semibold text-[#58a6ff] group-hover:underline">
+                    {preset.label}
+                  </span>
+                  <div className="flex items-center gap-1 text-[10px] text-[#8b949e] font-mono">
+                    <span 
+                      className="w-2 h-2 rounded-full inline-block"
+                      style={{ backgroundColor: preset.langColor }}
+                    />
+                    <span>{preset.lang}</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-[#8b949e] leading-snug">
+                  {preset.desc}
+                </p>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-[#6e7681] group-hover:text-[#c9d1d9] shrink-0 mt-0.5 ml-2 transition-transform group-hover:translate-x-0.5" />
             </button>
           ))}
         </div>
+      </div>
 
-        {/* Feature Pillars */}
-        <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-left">
-          <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-sm">
-            <div className="w-8 h-8 rounded-lg bg-cyan-950 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-3">
-              <Layers className="w-4 h-4" />
+      {/* Technical Workflow Capabilities */}
+      <div className="mt-12 pt-8 border-t border-[#21262d]">
+        <div className="text-xs font-mono uppercase text-[#8b949e] font-semibold mb-4">
+          Pipeline Specifications
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="p-3.5 rounded-lg bg-[#161b22] border border-[#21262d]">
+            <div className="text-xs font-mono font-semibold text-[#f0f6fc] flex items-center gap-1.5 mb-1">
+              <Code className="w-3.5 h-3.5 text-[#58a6ff]" />
+              <span>AST & Tree Parsing</span>
             </div>
-            <h3 className="text-sm font-semibold text-white">Visual Architecture</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Dynamic multi-layer diagram mapping frontend, APIs, core services, and dependencies.
+            <p className="text-xs text-[#8b949e] leading-relaxed">
+              Filters package manifests, build configs, and entrypoints while stripping binary assets.
             </p>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-sm">
-            <div className="w-8 h-8 rounded-lg bg-blue-950 border border-blue-500/30 flex items-center justify-center text-blue-400 mb-3">
-              <Code2 className="w-4 h-4" />
+          <div className="p-3.5 rounded-lg bg-[#161b22] border border-[#21262d]">
+            <div className="text-xs font-mono font-semibold text-[#f0f6fc] flex items-center gap-1.5 mb-1">
+              <GitFork className="w-3.5 h-3.5 text-[#bc8cff]" />
+              <span>Topology Inference</span>
             </div>
-            <h3 className="text-sm font-semibold text-white">Important Files Map</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Filters out noise and surfaces the critical source files and why they matter.
+            <p className="text-xs text-[#8b949e] leading-relaxed">
+              Maps multi-tier relationships (Frontend, API router, services, data persistence).
             </p>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-sm">
-            <div className="w-8 h-8 rounded-lg bg-emerald-950 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3">
-              <GitPullRequest className="w-4 h-4" />
+          <div className="p-3.5 rounded-lg bg-[#161b22] border border-[#21262d]">
+            <div className="text-xs font-mono font-semibold text-[#f0f6fc] flex items-center gap-1.5 mb-1">
+              <GitPullRequest className="w-3.5 h-3.5 text-[#3fb950]" />
+              <span>Starting Point Spec</span>
             </div>
-            <h3 className="text-sm font-semibold text-white">Contributor Starting Point</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Clear "Where should I start?" guidance and actionable first PR suggestions.
+            <p className="text-xs text-[#8b949e] leading-relaxed">
+              Identifies the highest-leverage file for new contributors with actionable PR tasks.
             </p>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-sm">
-            <div className="w-8 h-8 rounded-lg bg-amber-950 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3">
-              <ShieldAlert className="w-4 h-4" />
+          <div className="p-3.5 rounded-lg bg-[#161b22] border border-[#21262d]">
+            <div className="text-xs font-mono font-semibold text-[#f0f6fc] flex items-center gap-1.5 mb-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#d29922]" />
+              <span>Grounded Static Triage</span>
             </div>
-            <h3 className="text-sm font-semibold text-white">Grounded Issue Triage</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Observations based strictly on code evidence labeled "Needs Review" to prevent hallucinations.
+            <p className="text-xs text-[#8b949e] leading-relaxed">
+              Labels observations as "Needs Review" based strictly on file evidence without hallucinations.
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Footer Tagline */}
-        <div className="mt-12 text-xs text-slate-500 font-mono tracking-wider">
-          Open Source • AI-Powered • Developer Tool
-        </div>
+      {/* Footer Meta */}
+      <div className="mt-8 text-center text-xs text-[#6e7681] font-mono">
+        Open Source • AI-Powered • Developer Tool
       </div>
     </div>
   );

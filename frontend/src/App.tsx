@@ -26,11 +26,10 @@ export const App: React.FC = () => {
   const [copiedMarkdown, setCopiedMarkdown] = useState(false);
 
   useEffect(() => {
-    // Check backend health on mount
     checkBackendHealth()
       .then(res => setHealth(res))
       .catch(() => {
-        // Backend not yet reachable; normal if started in separate order
+        // Backend not yet reachable or warming up
       });
   }, []);
 
@@ -111,7 +110,7 @@ ${analysis.potential_issues.map(iss => `### [${iss.confidence.toUpperCase()}] ${
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
+    <div className="min-h-screen bg-[#0d1117] text-[#e6edf3] flex flex-col font-sans">
       {/* Top Header */}
       <Header
         repository={data?.repository}
@@ -144,31 +143,32 @@ ${analysis.potential_issues.map(iss => `### [${iss.confidence.toUpperCase()}] ${
         )}
 
         {data && !isLoading && (
-          <div className="animate-in fade-in duration-500">
-            {/* Dashboard Sub-Header with Export Button */}
-            <div className="bg-slate-950/60 border-b border-slate-800 py-3 px-4 sm:px-6 lg:px-8">
-              <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span>Analysis Ready for:</span>
-                  <span className="text-white font-semibold">{data.repository.full_name}</span>
+          <div>
+            {/* Dashboard Sub-Header */}
+            <div className="bg-[#161b22] border-b border-[#30363d] py-2.5 px-4 sm:px-6 lg:px-8">
+              <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+                <div className="flex items-center gap-2 text-[#8b949e]">
+                  <span className="w-2 h-2 rounded-full bg-[#3fb950]" />
+                  <span>Target:</span>
+                  <span className="text-[#f0f6fc] font-semibold">{data.repository.full_name}</span>
+                  <span className="text-[#6e7681]">({data.repository.default_branch})</span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleExportMarkdown}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-mono text-cyan-300 transition-colors cursor-pointer"
-                    title="Copy complete developer guide as Markdown"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-[#c9d1d9] transition-colors cursor-pointer"
+                    title="Copy full developer guide as Markdown"
                   >
                     {copiedMarkdown ? (
                       <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copied to Clipboard!</span>
+                        <Check className="w-3.5 h-3.5 text-[#3fb950]" />
+                        <span className="text-[#3fb950]">Copied Markdown!</span>
                       </>
                     ) : (
                       <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Developer Guide (MD)</span>
+                        <Copy className="w-3.5 h-3.5 text-[#8b949e]" />
+                        <span>Export Guide (.md)</span>
                       </>
                     )}
                   </button>
@@ -185,7 +185,7 @@ ${analysis.potential_issues.map(iss => `### [${iss.confidence.toUpperCase()}] ${
             />
 
             {/* Tab Contents */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
               {activeTab === 'overview' && (
                 <OverviewCard
                   overview={data.analysis.project_overview}
@@ -229,16 +229,16 @@ ${analysis.potential_issues.map(iss => `### [${iss.confidence.toUpperCase()}] ${
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950 py-6 text-center text-xs text-slate-500 font-mono">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      {/* Engineering Footer */}
+      <footer className="border-t border-[#30363d] bg-[#161b22] py-4 text-xs text-[#8b949e] font-mono">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-400">RepoPilot AI</span>
-            <span>—</span>
+            <span className="font-semibold text-[#f0f6fc]">RepoPilot AI</span>
+            <span className="text-[#6e7681]">•</span>
             <span>Open-Weight Repository Understanding & Contributor Engine</span>
           </div>
           <div>
-            <span>MIT License • Hacktoberfest 2026</span>
+            <span className="text-[#6e7681]">MIT License • MLH Hacktoberfest</span>
           </div>
         </div>
       </footer>
