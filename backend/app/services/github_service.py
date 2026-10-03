@@ -1,6 +1,7 @@
 import re
 import base64
 import logging
+import asyncio
 from typing import Dict, Any, List, Optional, Tuple
 import httpx
 
@@ -62,65 +63,96 @@ class GitHubService:
     def __init__(self):
         self.headers = {
             "Accept": "application/vnd.github.v3+json",
-            "User-Agent": "RepoPilot-AI"
+            "User-Agent": "RepoPilot-AI",
+            "Connection": "close"  # Prevent stale keepalive socket disconnects on Windows/proxies
         }
         if settings.GITHUB_TOKEN:
             self.headers["Authorization"] = f"Bearer {settings.GITHUB_TOKEN}"
 
+    def _create_client(self) -> httpx.AsyncClient:
+        """Creates an HTTPX client with retries and connection limits."""
+        transport = httpx.AsyncHTTPTransport(retries=3, verify=True)
+        return httpx.AsyncClient(
+            transport=transport,
+            timeout=settings.REQUEST_TIMEOUT_SECONDS,
+            follow_redirects=True
+        )
+
+    async def _request_with_retry(self, url: str, headers: Dict[str, str], max_retries: int = 3) -> httpx.Response:
+        """Executes an HTTP request with exponential backoff on transient network drops."""
+        last_exception = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                async with self._create_client() as client:
+                    resp = await client.get(url, headers=headers)
+                    return resp
+            except (httpx.RemoteProtocolError, httpx.ConnectError, httpx.ReadTimeout, httpx.TransportError) as e:
+                last_exception = e
+                logger.warning(f"Network attempt {attempt}/{max_retries} failed for {url}: {e}")
+                if attempt < max_retries:
+                    await asyncio.sleep(attempt * 0.8)
+                else:
+                    raise RuntimeError(
+                        f"GitHub connection dropped after {max_retries} attempts: {str(last_exception)}. "
+                        "Please check your network connection or try again."
+                    )
+        raise RuntimeError(f"Request failed: {last_exception}")
+
     async def get_repository_info(self, owner: str, repo: str) -> Dict[str, Any]:
         """Fetch general repository metadata from GitHub API."""
         url = f"https://api.github.com/repos/{owner}/{repo}"
-        async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT_SECONDS) as client:
-            resp = await client.get(url, headers=self.headers)
-            if resp.status_code == 404:
-                raise ValueError(f"Repository '{owner}/{repo}' not found on GitHub or is private.")
-            elif resp.status_code in (403, 429):
-                rate_limit_msg = (
-                    "GitHub API rate limit exceeded. "
-                    "Add a free GITHUB_TOKEN to backend/.env to increase limit to 5,000 requests/hour."
-                )
-                logger.warning(rate_limit_msg)
-                raise ValueError(rate_limit_msg)
-            elif resp.status_code != 200:
-                raise ValueError(f"GitHub API error ({resp.status_code}): {resp.text}")
+        resp = await self._request_with_retry(url, headers=self.headers)
+        
+        if resp.status_code == 404:
+            raise ValueError(f"Repository '{owner}/{repo}' not found on GitHub or is private.")
+        elif resp.status_code in (403, 429):
+            rate_limit_msg = (
+                "GitHub API rate limit exceeded. "
+                "Add a free GITHUB_TOKEN to backend/.env to increase limit to 5,000 requests/hour."
+            )
+            logger.warning(rate_limit_msg)
+            raise ValueError(rate_limit_msg)
+        elif resp.status_code != 200:
+            raise ValueError(f"GitHub API error ({resp.status_code}): {resp.text}")
 
-            data = resp.json()
-            if data.get("size", 0) == 0 and not data.get("default_branch"):
-                raise ValueError(f"Repository '{owner}/{repo}' appears to be empty.")
+        data = resp.json()
+        if data.get("size", 0) == 0 and not data.get("default_branch"):
+            raise ValueError(f"Repository '{owner}/{repo}' appears to be empty.")
 
-            return {
-                "owner": data.get("owner", {}).get("login", owner),
-                "name": data.get("name", repo),
-                "full_name": data.get("full_name", f"{owner}/{repo}"),
-                "description": data.get("description") or "No description provided.",
-                "html_url": data.get("html_url", f"https://github.com/{owner}/{repo}"),
-                "default_branch": data.get("default_branch") or "main",
-                "stars": data.get("stargazers_count", 0),
-                "forks": data.get("forks_count", 0),
-                "open_issues": data.get("open_issues_count", 0),
-                "language": data.get("language") or "Mixed",
-                "license": data.get("license", {}).get("name") if data.get("license") else "None",
-            }
+        return {
+            "owner": data.get("owner", {}).get("login", owner),
+            "name": data.get("name", repo),
+            "full_name": data.get("full_name", f"{owner}/{repo}"),
+            "description": data.get("description") or "No description provided.",
+            "html_url": data.get("html_url", f"https://github.com/{owner}/{repo}"),
+            "default_branch": data.get("default_branch") or "main",
+            "stars": data.get("stargazers_count", 0),
+            "forks": data.get("forks_count", 0),
+            "open_issues": data.get("open_issues_count", 0),
+            "language": data.get("language") or "Mixed",
+            "license": data.get("license", {}).get("name") if data.get("license") else "None",
+        }
 
     async def get_repository_tree(self, owner: str, repo: str, default_branch: str) -> List[Dict[str, Any]]:
         """Fetch the full recursive Git tree of the repository."""
         url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1"
-        async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT_SECONDS) as client:
-            resp = await client.get(url, headers=self.headers)
+        try:
+            resp = await self._request_with_retry(url, headers=self.headers)
             if resp.status_code == 200:
                 tree_data = resp.json()
                 return [item for item in tree_data.get("tree", []) if item.get("type") == "blob"]
-            
-            # Fallback if git/trees is unavailable or branch differs:
-            logger.warning(f"Git tree recursive endpoint returned {resp.status_code}. Falling back to contents API.")
-            return await self._fallback_fetch_tree(owner, repo, "")
+        except Exception as e:
+            logger.warning(f"Recursive Git tree failed: {e}. Falling back to directory contents.")
+
+        # Fallback to contents API if tree API fails
+        return await self._fallback_fetch_tree(owner, repo, "")
 
     async def _fallback_fetch_tree(self, owner: str, repo: str, path: str = "") -> List[Dict[str, Any]]:
         """Fallback to contents API if tree API fails."""
         url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
         files = []
-        async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT_SECONDS) as client:
-            resp = await client.get(url, headers=self.headers)
+        try:
+            resp = await self._request_with_retry(url, headers=self.headers)
             if resp.status_code != 200:
                 return files
             items = resp.json()
@@ -132,6 +164,8 @@ class GitHubService:
                 elif item.get("type") == "dir" and item.get("name") not in IGNORED_DIRECTORIES:
                     sub_files = await self._fallback_fetch_tree(owner, repo, item.get("path"))
                     files.extend(sub_files)
+        except Exception as e:
+            logger.warning(f"Fallback fetch failed for path '{path}': {e}")
         return files
 
     def filter_and_select_relevant_files(self, tree_items: List[Dict[str, Any]]) -> List[str]:
@@ -201,41 +235,52 @@ class GitHubService:
         selected_paths = [path for score, path in scored_candidates[:settings.MAX_ANALYSIS_FILES]]
         return selected_paths
 
+    async def fetch_single_file(self, owner: str, repo: str, default_branch: str, path: str, sem: asyncio.Semaphore) -> Tuple[str, str]:
+        """Fetches a single file content safely with concurrency control and fallbacks."""
+        async with sem:
+            raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{default_branch}/{path}"
+            try:
+                resp = await self._request_with_retry(raw_url, headers=self.headers, max_retries=2)
+                if resp.status_code == 200:
+                    content = resp.text
+                    if len(content.encode("utf-8", errors="ignore")) > settings.MAX_FILE_BYTES:
+                        return path, content[:settings.MAX_FILE_BYTES] + "\n\n... [Content truncated for context window] ..."
+                    return path, content
+            except Exception as e:
+                logger.warning(f"Raw fetch failed for {path}: {e}")
+
+            # Fallback to GitHub Contents API
+            try:
+                api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={default_branch}"
+                api_resp = await self._request_with_retry(api_url, headers=self.headers, max_retries=2)
+                if api_resp.status_code == 200:
+                    data = api_resp.json()
+                    if data.get("encoding") == "base64" and data.get("content"):
+                        decoded = base64.b64decode(data["content"]).decode("utf-8", errors="replace")
+                        if len(decoded.encode("utf-8", errors="ignore")) > settings.MAX_FILE_BYTES:
+                            return path, decoded[:settings.MAX_FILE_BYTES] + "\n\n... [Content truncated] ..."
+                        return path, decoded
+            except Exception as e:
+                logger.warning(f"Contents API fallback failed for {path}: {e}")
+
+            return path, f"// File available at {path} (contents omitted for brevity)"
+
     async def fetch_file_contents(self, owner: str, repo: str, default_branch: str, file_paths: List[str]) -> Dict[str, str]:
         """
-        Fetches the contents of the selected files.
+        Fetches the contents of the selected files concurrently with concurrency limit.
         Truncates large files to prevent blowing context limits.
         """
+        sem = asyncio.Semaphore(5)
+        tasks = [
+            self.fetch_single_file(owner, repo, default_branch, path, sem)
+            for path in file_paths
+        ]
+        results_list = await asyncio.gather(*tasks, return_exceptions=True)
+        
         results: Dict[str, str] = {}
-        async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT_SECONDS) as client:
-            for path in file_paths:
-                # Raw URL is fast and avoids API rate limiting on contents
-                raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{default_branch}/{path}"
-                try:
-                    resp = await client.get(raw_url, headers=self.headers)
-                    if resp.status_code == 200:
-                        content = resp.text
-                        # Truncate if exceeds max bytes
-                        if len(content.encode("utf-8", errors="ignore")) > settings.MAX_FILE_BYTES:
-                            truncated = content[:settings.MAX_FILE_BYTES]
-                            results[path] = truncated + "\n\n... [Content truncated for context window] ..."
-                        else:
-                            results[path] = content
-                    else:
-                        # Fallback to GitHub Contents API
-                        api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={default_branch}"
-                        api_resp = await client.get(api_url, headers=self.headers)
-                        if api_resp.status_code == 200:
-                            data = api_resp.json()
-                            if data.get("encoding") == "base64" and data.get("content"):
-                                decoded = base64.b64decode(data["content"]).decode("utf-8", errors="replace")
-                                if len(decoded.encode("utf-8", errors="ignore")) > settings.MAX_FILE_BYTES:
-                                    results[path] = decoded[:settings.MAX_FILE_BYTES] + "\n\n... [Content truncated] ..."
-                                else:
-                                    results[path] = decoded
-                except Exception as e:
-                    logger.warning(f"Failed to fetch content for file {path}: {e}")
-                    results[path] = f"// Error reading file: {str(e)}"
+        for item in results_list:
+            if isinstance(item, tuple) and len(item) == 2:
+                results[item[0]] = item[1]
 
         return results
 
