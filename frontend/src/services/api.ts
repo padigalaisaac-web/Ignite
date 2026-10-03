@@ -1,6 +1,9 @@
 import type { AnalyzeResponse, HealthResponse } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim();
+const API_BASE_URL = rawApiUrl
+  ? (rawApiUrl.startsWith('http://') || rawApiUrl.startsWith('https://') ? rawApiUrl : `https://${rawApiUrl}`)
+  : (import.meta.env.DEV ? 'http://localhost:8000' : '');
 
 export async function analyzeRepository(repoUrl: string): Promise<AnalyzeResponse> {
   const response = await fetch(`${API_BASE_URL}/api/analyze`, {
